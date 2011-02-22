@@ -1,0 +1,110 @@
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>riak-browser</title>
+  <script src="jquery-1.4.1.min.js" type="text/javascript" charset="utf-8"></script>
+  <script src="jquery-ui-1.8.7.custom.min.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript" src="riak.js"></script>
+  <script type="text/javascript" src="json2.js"></script>
+  <link rel="stylesheet" href="jquery-ui-1.8.7.custom.css" type="text/css" charset="utf-8" />
+
+  <script type="text/javascript">
+  $(document).ready(function(){
+    $tabs = getTabs();
+    getBuckets($tabs);
+  });
+
+  function getTabs(){
+    var $buckets = $("#buckets").tabs({
+       tabTemplate: "<li><a href='#{href}'>#{label}</a> <span class='ui-icon ui-icon-circle-close'>Delete bucket</span></li>",
+       add: function(event,ui) {
+	      $( ui.panel ).append("loading...");
+       }
+    });
+    return $buckets;
+  }
+
+  function getBuckets($buckets){
+    var tab_counter = 1;
+    $.getJSON('/riak?buckets=true',function(json){
+      $.each(json.buckets,function(i,bucket){        
+        $buckets.tabs("add","#tabs-"+tab_counter,json.buckets[i]);
+        loadKeys(json.buckets[i],tab_counter); 
+        $("span.ui-icon-circle-close").live( "click", function() {
+          deleteBucket(json.buckets[i],$buckets,tab_counter);
+        });
+        tab_counter++;
+      });
+    });
+  }
+
+  function loadKeys(bucket,tab_id){
+    $("#tabs-"+tab_id).empty();
+    $.getJSON('/riak/'+ bucket +'?props=false&keys=true',function(json){
+          $("#tabs-"+tab_id).append('<table id="keys-'+tab_id+'">');
+          $.each(json.keys,function(j,json2){
+            $('#keys-'+tab_id).append('<tr id='+bucket+json.keys[j]+'><td><a target=\"_blank\" href="/riak/'+ bucket + '/' + json.keys[j] + '">'+ json.keys[j] + '</a></td><td><a href="javascript:deleteKey(\''+ bucket +'\',\''+json.keys[j]+'\')"><span style="display: inline-block;" class="ui-icon ui-icon-close"/></a></td></tr>');
+          });
+          $("#tabs-"+tab_id).append("</table>");
+        });
+  }
+  
+  function deleteBucket(bucket,tabs,tab_id) {
+    $( "#dialog-delete-bucket" ).dialog({
+      resizable: false,
+      height:140,
+      modal: true,
+      buttons: {
+	Cancel: function() {
+	  $( this ).dialog( "close" );
+	},
+ 	"Delete bucket": function() {
+//TODO
+          bucket.tabs( "remove", tab_id );
+          $( this ).dialog( "close" );
+	}
+      }
+    });
+  }
+  function deleteKey(bucket,key) {
+    $( "#dialog-delete-key" ).dialog({
+      resizable: false,
+      height:140,
+      modal: true,
+      buttons: {
+	Cancel: function() {
+	  $( this ).dialog( "close" );
+	},
+ 	"Delete key": function() {
+          $.ajax({
+            url: "/riak/"+ bucket + "/" + key ,
+            type: "DELETE",
+            success: $('#'+bucket+key).empty()
+          });
+          $( this ).dialog( "close" );
+	}
+      }
+    });
+  }
+   
+  </script>
+ </head>
+
+ <body style="font-size:10px;font-family:arial;">
+   <div id="buckets">
+    <ul id="bucket"></ul>
+
+<div id="dialog-delete-bucket" title="Delete bucket?" style="display: none">
+	<p><span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 20px 0;"></span>This bucket will be permanently deleted and cannot be recovered. Are you sure?</p>
+</div>
+
+<div id="dialog-delete-key" title="Delete key?" style="display: none">
+	<p><span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 20px 0;"></span>This key will be permanently deleted and cannot be recovered. Are you sure?</p>
+</div>
+   </div>
+<div> 
+<a href="http://github.com/skateordie/riak-browser">riak-browser on github</a>
+</div>
+  </body>
+</html>
